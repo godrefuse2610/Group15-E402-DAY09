@@ -1,7 +1,7 @@
 # Báo Cáo Cá Nhân — Lab Day 09: Multi-Agent Orchestration
 
-**Họ và tên:** Nguyễn Công Nhật Tân 
-**Vai trò trong nhóm:** Trace & Docs Owner (Trace Owner)  
+**Họ và tên:** Nguyễn Công Nhật Tân (MSSV: 2A202600141)
+**Vai trò trong nhóm:** Trace & Docs Owner (Eval Owner)  
 **Ngày nộp:** 14/4/2026  
 
 ---
