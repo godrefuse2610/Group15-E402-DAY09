@@ -1,0 +1,50 @@
+{
+  "generated_at": "2026-04-14T16:31:05.893069",
+  "day08_single_agent": {
+    "total_questions": 10,
+    "avg_confidence": 0.0,
+    "avg_latency_ms": 2469,
+    "abstain_rate": "N/A",
+    "multi_hop_accuracy": "N/A"
+  },
+  "day09_multi_agent": {
+    "total_traces": 38,
+    "routing_distribution": {
+      "policy_tool_worker": "20/38 (52%)",
+      "retrieval_worker": "18/38 (47%)"
+    },
+    "avg_confidence": 0.609,
+    "avg_latency_ms": 16347,
+    "mcp_usage_rate": "17/38 (44%)",
+    "hitl_rate": "2/38 (5%)",
+    "top_sources": [
+      [
+        "sla_p1_2026.txt",
+        15
+      ],
+      [
+        "policy_refund_v4.txt",
+        6
+      ],
+      [
+        "hr_leave_policy.txt",
+        5
+      ],
+      [
+        "it_helpdesk_faq.txt",
+        4
+      ],
+      [
+        "access_control_sop.txt",
+        1
+      ]
+    ]
+  },
+  "analysis": {
+    "routing_visibility": "Day 09 có route_reason cho từng câu → dễ debug hơn Day 08 RAG nguyên khối.",
+    "latency_delta": "Day 09 đi qua chuỗi Supervisor -> Worker -> LLM nên thường có xu hướng chậm hơn Day 08 nhưng đổi lại an toàn hơn.",
+    "accuracy_delta": "Multi-agent phân tách ngữ cảnh và check policy giúp ngăn chặn ảo giác (hallucination) tốt hơn khi xử lý edge case (như Flash Sale).",
+    "debuggability": "Multi-agent: có thể test từng worker độc lập (như Policy check). Single-agent: không thể.",
+    "mcp_benefit": "Day 09 có thể extend capability qua MCP trong tương lai mà không cần can thiệp logic code cốt lõi. Day 08 phải hard-code bằng tay."
+  }
+}

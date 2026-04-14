@@ -28,6 +28,8 @@ WORKER_NAME = "retrieval_worker"
 DEFAULT_TOP_K = 3
 
 
+_STATIC_HF_MODEL = None
+
 def _get_embedding_fn():
     """
     Trả về embedding function.
@@ -35,10 +37,15 @@ def _get_embedding_fn():
     """
     # Option A: Sentence Transformers (offline, không cần API key)
     try:
+        import os
+        os.environ["HF_HUB_OFFLINE"] = "1"
         from sentence_transformers import SentenceTransformer
-        model = SentenceTransformer("all-MiniLM-L6-v2")
+        global _STATIC_HF_MODEL
+        if _STATIC_HF_MODEL is None:
+            _STATIC_HF_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
+            
         def embed(text: str) -> list:
-            return model.encode([text])[0].tolist()
+            return _STATIC_HF_MODEL.encode([text])[0].tolist()
         return embed
     except ImportError:
         pass
