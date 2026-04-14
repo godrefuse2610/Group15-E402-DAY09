@@ -11,11 +11,20 @@ Chạy thử:
 
 import json
 import os
+import sys
 from datetime import datetime
 from typing import TypedDict, Literal, Optional
 
-# Uncomment nếu dùng LangGraph:
-# from langgraph.graph import StateGraph, END
+# Ensure UTF-8 output on Windows terminals
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+# Optional: LangGraph (only needed if switching to Option B)
+try:
+    from langgraph.graph import StateGraph, END
+except ImportError:
+    StateGraph = None
+    END = None
 
 # ─────────────────────────────────────────────
 # 1. Shared State — dữ liệu đi xuyên toàn graph
@@ -89,42 +98,49 @@ def supervisor_node(state: AgentState) -> AgentState:
     task = state["task"].lower()
     state["history"].append(f"[supervisor] received task: {state['task'][:80]}")
 
-    # --- TODO: Implement routing logic ---
-    # Gợi ý:
-    # - "hoàn tiền", "refund", "flash sale", "license" → policy_tool_worker
-    # - "cấp quyền", "access level", "level 3", "emergency" → policy_tool_worker
-    # - "P1", "escalation", "sla", "ticket" → retrieval_worker
-    # - mã lỗi không rõ (ERR-XXX), không đủ context → human_review
-    # - còn lại → retrieval_worker
+    # ── Keyword groups ────────────────────────────────────────────────────────
+    policy_keywords    = ["hoàn tiền", "refund", "flash sale", "license",
+                          "cấp quyền", "access", "level 3", "quy trình tạm thời",
+                          "tạm thời", "contractor", "admin access"]
+    retrieval_keywords = ["p1", "escalation", "sla", "ticket", "helpdesk",
+                          "faq", "on-call", "oncall"]
+    risk_keywords      = ["emergency", "khẩn cấp", "2am", "không rõ"]
+    error_code_pattern = "err-"   # unknown error codes → human review
 
-    route = "retrieval_worker"         # TODO: thay bằng logic thực
-    route_reason = "default route"    # TODO: thay bằng lý do thực
+    route = "retrieval_worker"
+    route_reason = "default: no specific keyword matched → retrieval"
     needs_tool = False
     risk_high = False
 
-    # Ví dụ routing cơ bản — nhóm phát triển thêm:
-    policy_keywords = ["hoàn tiền", "refund", "flash sale", "license", "cấp quyền", "access", "level 3"]
-    risk_keywords = ["emergency", "khẩn cấp", "2am", "không rõ", "err-"]
+    # ── Step 1: unknown error codes → human review ───────────────────────────
+    if error_code_pattern in task:
+        route = "human_review"
+        route_reason = "unknown error code (ERR-xxx) detected → human review"
+        risk_high = True
 
-    if any(kw in task for kw in policy_keywords):
+    # ── Step 2: policy / access / refund keywords ─────────────────────────────
+    elif any(kw in task for kw in policy_keywords):
+        matched = [kw for kw in policy_keywords if kw in task]
         route = "policy_tool_worker"
-        route_reason = f"task contains policy/access keyword"
+        route_reason = f"policy/access keyword(s) matched: {matched}"
         needs_tool = True
 
+    # ── Step 3: explicit retrieval keywords (P1, escalation, SLA …) ──────────
+    elif any(kw in task for kw in retrieval_keywords):
+        matched = [kw for kw in retrieval_keywords if kw in task]
+        route = "retrieval_worker"
+        route_reason = f"retrieval keyword(s) matched: {matched}"
+
+    # ── Step 4: risk flag (additive — applied regardless of route) ────────────
     if any(kw in task for kw in risk_keywords):
         risk_high = True
         route_reason += " | risk_high flagged"
-
-    # Human review override
-    if risk_high and "err-" in task:
-        route = "human_review"
-        route_reason = "unknown error code + risk_high → human review"
 
     state["supervisor_route"] = route
     state["route_reason"] = route_reason
     state["needs_tool"] = needs_tool
     state["risk_high"] = risk_high
-    state["history"].append(f"[supervisor] route={route} reason={route_reason}")
+    state["history"].append(f"[supervisor] route={route} | reason={route_reason}")
 
     return state
 
@@ -159,7 +175,7 @@ def human_review_node(state: AgentState) -> AgentState:
     state["workers_called"].append("human_review")
 
     # Placeholder: tự động approve để pipeline tiếp tục
-    print(f"\n⚠️  HITL TRIGGERED")
+    print(f"\n[HITL] HITL TRIGGERED")
     print(f"   Task: {state['task']}")
     print(f"   Reason: {state['route_reason']}")
     print(f"   Action: Auto-approving in lab mode (set hitl_triggered=True)\n")
@@ -324,7 +340,7 @@ if __name__ == "__main__":
     ]
 
     for query in test_queries:
-        print(f"\n▶ Query: {query}")
+        print(f"\n>> Query: {query}")
         result = run_graph(query)
         print(f"  Route   : {result['supervisor_route']}")
         print(f"  Reason  : {result['route_reason']}")
@@ -333,8 +349,8 @@ if __name__ == "__main__":
         print(f"  Confidence: {result['confidence']}")
         print(f"  Latency : {result['latency_ms']}ms")
 
-        # Lưu trace
+        # Luu trace
         trace_file = save_trace(result)
-        print(f"  Trace saved → {trace_file}")
+        print(f"  Trace saved -> {trace_file}")
 
-    print("\n✅ graph.py test complete. Implement TODO sections in Sprint 1 & 2.")
+    print("\n[OK] graph.py test complete. Implement TODO sections in Sprint 1 & 2.")
