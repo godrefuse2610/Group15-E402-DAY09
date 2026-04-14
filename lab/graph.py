@@ -108,14 +108,14 @@ def supervisor_node(state: AgentState) -> AgentState:
     error_code_pattern = "err-"   # unknown error codes → human review
 
     route = "retrieval_worker"
-    route_reason = "default: no specific keyword matched → retrieval"
+    route_reason = "default: no specific keyword matched -> retrieval"
     needs_tool = False
     risk_high = False
 
     # ── Step 1: unknown error codes → human review ───────────────────────────
     if error_code_pattern in task:
         route = "human_review"
-        route_reason = "unknown error code (ERR-xxx) detected → human review"
+        route_reason = "unknown error code (ERR-xxx) detected -> human review"
         risk_high = True
 
     # ── Step 2: policy / access / refund keywords ─────────────────────────────
@@ -136,11 +136,15 @@ def supervisor_node(state: AgentState) -> AgentState:
         risk_high = True
         route_reason += " | risk_high flagged"
 
+    route_reason += " | mcp=" + ("yes" if needs_tool else "no")
+
     state["supervisor_route"] = route
     state["route_reason"] = route_reason
     state["needs_tool"] = needs_tool
     state["risk_high"] = risk_high
-    state["history"].append(f"[supervisor] route={route} | reason={route_reason}")
+    state["history"].append(
+        f"[supervisor] route={route} | needs_tool={needs_tool} | reason={route_reason}"
+    )
 
     return state
 

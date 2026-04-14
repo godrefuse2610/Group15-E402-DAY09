@@ -21,6 +21,27 @@ import os
 WORKER_NAME = "policy_tool_worker"
 
 
+def _infer_access_level(task: str) -> int | None:
+    task_lower = task.lower()
+    for level in (3, 2, 1):
+        if f"level {level}" in task_lower or f"level-{level}" in task_lower:
+            return level
+    if "admin access" in task_lower:
+        return 3
+    return None
+
+
+def _infer_requester_role(task: str) -> str:
+    task_lower = task.lower()
+    if "contractor" in task_lower:
+        return "contractor"
+    if "admin" in task_lower:
+        return "admin"
+    if "employee" in task_lower or "nhan vien" in task_lower:
+        return "employee"
+    return "employee"
+
+
 # ─────────────────────────────────────────────
 # MCP Client — Sprint 3: Thay bằng real MCP call
 # ─────────────────────────────────────────────
@@ -236,11 +257,34 @@ def run(state: dict) -> dict:
         policy_result = analyze_policy(task, chunks)
         state["policy_result"] = policy_result
 
-        # Step 3: Nếu cần thêm info từ MCP (e.g., ticket status), gọi get_ticket_info
+        # Step 3: Nếu là access/emergency request, gọi MCP access tool
+        task_lower = task.lower()
+        access_level = _infer_access_level(task)
+        if needs_tool and access_level is not None:
+            access_result = _call_mcp_tool(
+                "check_access_permission",
+                {
+                    "access_level": access_level,
+                    "requester_role": _infer_requester_role(task),
+                    "is_emergency": any(kw in task_lower for kw in ["emergency", "khẩn cấp", "urgent"]),
+                },
+            )
+            state["mcp_tools_used"].append(access_result)
+            state["history"].append(
+                f"[{WORKER_NAME}] called MCP check_access_permission(level={access_level})"
+            )
+
+            if access_result.get("output") and not access_result["output"].get("error"):
+                state["policy_result"]["access_check"] = access_result["output"]
+
+        # Step 4: Nếu cần thêm info từ MCP (e.g., ticket status), gọi get_ticket_info
         if needs_tool and any(kw in task.lower() for kw in ["ticket", "p1", "jira"]):
             mcp_result = _call_mcp_tool("get_ticket_info", {"ticket_id": "P1-LATEST"})
             state["mcp_tools_used"].append(mcp_result)
             state["history"].append(f"[{WORKER_NAME}] called MCP get_ticket_info")
+
+            if mcp_result.get("output") and not mcp_result["output"].get("error"):
+                state["policy_result"]["ticket_info"] = mcp_result["output"]
 
         worker_io["output"] = {
             "policy_applies": policy_result["policy_applies"],
