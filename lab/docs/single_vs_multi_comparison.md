@@ -17,9 +17,9 @@
 
 | Metric | Day 08 (Single Agent) | Day 09 (Multi-Agent) | Delta | Ghi chú |
 |--------|----------------------|---------------------|-------|---------|
-| Avg confidence | 0.00 | 0.609 | +0.609 | Day 08 không đếm, Day 09 do AI tự chấm |
-| Avg latency (ms) | 2469 ms | 16347 ms | +13878 ms | Day 09 chậm hơn do phải loop qua Supervisor -> Tools |
-| Abstain rate (%) | N/A | 5% (HITL rate) | N/A | Day 09 có cơ chế Human-in-the-loop khi bí |
+| Avg confidence | 0.00 | 0.598 | +0.598 | Day 08 không đếm, Day 09 do AI tự chấm |
+| Avg latency (ms) | 2469 ms | 12585 ms | +10116 ms | Day 09 chậm hơn do phải loop qua Supervisor -> Tools |
+| Abstain rate (%) | N/A | 9% (HITL rate) | N/A | Day 09 có cơ chế Human-in-the-loop khi bí |
 | Multi-hop accuracy | N/A | N/A | N/A | % câu multi-hop trả lời đúng |
 | Routing visibility | ✗ Không có | ✓ Có route_reason | N/A | Giúp debug dễ hơn |
 | Debug time (estimate) | ~15 phút | ~3 phút | Nhanh hơn | Nhờ Trace file JSON chỉ đúng lỗi ở chặng nào |
@@ -59,7 +59,7 @@ _________________
 
 | Nhận xét | Day 08 | Day 09 |
 |---------|--------|--------|
-| Abstain rate | N/A | 5% |
+| Abstain rate | N/A | 9% |
 | Hallucination cases | Dễ bịa ra câu trả lời sai | Ít bịa hơn nhờ cơ chế rẽ nhánh |
 | Observation | Ép LLM phải sinh ra câu trả lời bằng mọi giá | Có Supervisor đẩy "unknown error code" vào cổng Human-In-The-Loop. |
 

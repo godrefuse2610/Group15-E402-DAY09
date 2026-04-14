@@ -1,6 +1,6 @@
 # Báo Cáo Cá Nhân — Lab Day 09: Multi-Agent Orchestration
 
-**Họ và tên:** Nguyễn Công Nhật Tân (MSSV: 2A202600141)
+**Họ và tên:** Nguyễn Công Nhật Tân (MSSV: 2A202600141)  
 **Vai trò trong nhóm:** Trace & Docs Owner (Eval Owner)  
 **Ngày nộp:** 14/4/2026  
 
@@ -10,10 +10,10 @@
 
 **Module/file tôi chịu trách nhiệm:**
 - File chính: `eval_trace.py`, Day 8 `eval.py`, `docs/single_vs_multi_comparison.md`.
-- Functions tôi implement: `analyze_traces()`, `compare_single_vs_multi()` trong `eval_trace.py`; viết thêm logic lưu `day08_results.json` cho codebase Day 08.
+- Functions tôi implement: `analyze_traces()`, `compare_single_vs_multi()` trong `eval_trace.py`; viết thêm logic lưu `day08_results.json` cho codebase Day 08 và chèn `load_dotenv()` vào Pipeline.
 
 **Cách công việc của tôi kết nối với phần của thành viên khác:**
-Tôi là chốt chặn cuối cùng kiểm tra chất lượng. Các bạn dev (Worker/Supervisor Owners) viết code và xử lý logic luồng Agent; công việc của tôi là chạy 15 test cases, thu gom lại các Trace log của họ thành `artifacts/traces` để tính toán Latency, Confidence và đo lường độ phân rã Context. Từ đó chứng minh hệ thống Multi-Agent Day 09 có độ an toàn cao hơn Day 08. Nếu file JSON Trace của họ làm sai Contract, script Eval của tôi sẽ báo lỗi.
+Tôi là chốt chặn cuối cùng kiểm tra chất lượng. Các bạn dev (Worker/Supervisor Owners) viết code và xử lý logic luồng Agent; công việc của tôi là chạy test cases, thu gom lại các Trace log của họ thành `artifacts/traces` để tính toán Latency, Confidence và đo lường độ phân rã Context. Khi chạy Grading, tôi đã phát hiện và cứu nhóm một bàn thua trông thấy khi luồng Synthesis không gọi được LLM!
 
 ---
 
@@ -22,23 +22,16 @@ Tôi là chốt chặn cuối cùng kiểm tra chất lượng. Các bạn dev (
 **Quyết định:** Viết bổ sung thêm một khối module tự động tính toán Time-Latency ở bên code Day 08 (file `day8/Group15-E402-DAY8/lab/eval.py`), và xuất kết quả ra file `day08_results.json` để Pipeline Day 09 (`eval_trace.py`) tự động load vào hàm `compare_single_vs_multi()`.
 
 **Lý do:**
-Ban đầu, biến `day08_baseline` trong file Eval của Day 09 chỉ là các con số Hard-Code (hoặc "N/A"). Để việc so sánh hoàn toàn minh bạch và khoa học 100%, tôi quyết định không điền số tay mà nâng cấp luôn code Day 08, ép nó chạy ra 1 file chuẩn format JSON có `latency_ms` và truyền thẳng absolute path của nó sang môi trường chạy Day 09.
+Ban đầu, biến `day08_baseline` trong file Eval của Day 09 chỉ là các con số Hard-Code. Để việc so sánh minh bạch và khách quan, tôi quyết định nâng cấp luôn code Day 08, ép nó xuất ra 1 file chuẩn format JSON có `latency_ms` và truyền thẳng absolute path của nó sang môi trường chạy Day 09.
 
 **Trade-off đã chấp nhận:**
-Khá mất thời gian vì phải đọc lại code `run_scorecard` xa xưa ở Lab Day 08 và chèn `time.time()` vào khối Exception Handling. Đổi lại, file báo cáo `single_vs_multi_comparison.md` có tính tự động cao.
+Mất một chút thời gian xử lý exception handling cũ của Lab Day 08. Đổi lại đồ thị báo cáo cực chuẩn xác số milliseconds.
 
-**Bằng chứng từ code:**
+**Bằng chứng từ code (cập nhật file eval_trace.py):**
 ```python
-# Cập nhật eval.py bên Day 08
-latency_ms = int((time.time() - start_t) * 1000)
-day08_json = {
-    "total_questions": len(baseline_results),
-    "avg_confidence": 0.0, 
-    "avg_latency_ms": int(avg_lat)
-...
-# Cập nhật eval_trace.py bên Day 09
 def compare_single_vs_multi(
-    day08_results_file: Optional[str] = r"c:\Users\Admin\LAB\day8-9-10\day8\Group15-E402-DAY8\lab\results\day08_results.json"
+    multi_traces_dir: str = "artifacts/traces",
+    day08_results_file: Optional[str] = r"c:\Users\Admin\LAB\day8-9-10\day8\Group15-E402-DAY8\lab\results\day08_results.json",
 ):
 ```
 
@@ -46,48 +39,45 @@ def compare_single_vs_multi(
 
 ## 3. Tôi đã sửa một lỗi gì?
 
-**Lỗi:** Script Evaluation bị Treo vô hạn và Timeout (Crash `KeyboardInterrupt`) khi chạy tới các câu hỏi gọi Retrieval.
+**Lỗi siêu to khổng lồ:** Traces sinh ra từ file `eval_trace.py --grading` luôn bị `[SYNTHESIS ERROR] Không thể gọi LLM` dù API Key hoàn toàn hợp lệ, đe dọa điểm 0 ở phần 30 điểm Grading Questions!
 
-**Symptom (pipeline làm gì sai?):**
-Khi tôi gõ `python eval_trace.py`, hệ thống in ra 1 câu rồi Loading Weights 100MB của `SentenceTransformer`. Tới câu thứ 3, hệ thống khựng lại, báo lỗi kết nối `ssl.py` và sập do Timeout.
+**Symptom:**
+Khi gọi `python eval_trace.py --grading`, toàn bộ 10 JSON output đều có answer lỗi `"Không thể gọi LLM. Kiểm tra API key trong .env."`. Tưởng do file config nhưng thực chất biến OS ảo hoàn toàn trống.
 
 **Root cause:**
-Lỗi nằm ở module `workers/retrieval.py` khi bạn dev ném dòng `model = SentenceTransformer(...)` vào **bên trong** hàm. Do vòng lặp của Multi-Agent, cứ mỗi khi gọi Search_KB trên MCP hoặc tới Node Retrieval, LLM lại tải lại nguyên một model Offline 100MB và bắt API HuggingFace gọi check_update mạng. Do Rate limits, HuggingFace từ chối kết nối dẫn tới treo máy.
+Lỗi do skeleton code mặc định từ lab không hề load biến môi trường! File `eval_trace.py` gọi vào `graph.py` và `synthesis.py` nhưng KHÔNG có bất kỳ hàm `load_dotenv()` nào ở root script, dẫn tới `os.getenv("OPENAI_API_KEY")` luôn bằng None.
 
 **Cách sửa:**
-Rút `model` ra khỏi scope local, định nghĩa nó bằng một biến toàn cục `_STATIC_HF_MODEL` tải lười (Lazy Loaded), và cấm HuggingFace call mạng bằng `os.environ["HF_HUB_OFFLINE"] = "1"`.
+Can thiệp sâu vào `eval_trace.py`, import và khởi chạy hàm `load_dotenv()` ngay ở dòng 20 trước khi script bắt đầu làm việc.
 
-**Bằng chứng cách sửa (Workers/Retrieval.py):**
+**Bằng chứng trước/sau:**
+*Code sửa chữa vào top của eval_trace.py:*
 ```python
-        import os
-        os.environ["HF_HUB_OFFLINE"] = "1" # Khoá check update mạng, dùng local cache Day 8
-        from sentence_transformers import SentenceTransformer
-        global _STATIC_HF_MODEL
-        if _STATIC_HF_MODEL is None:
-            _STATIC_HF_MODEL = SentenceTransformer("all-MiniLM-L6-v2") # Load đúng 1 lần duy nhất
+import argparse
+from dotenv import load_dotenv
+load_dotenv()
+from datetime import datetime
 ```
-*Kết quả:* Tốc độ phản hồi câu 2 đến 15 giảm xuống chớp nhoáng chỉ còn ~15 ms (thay vì 15,000 ms treo máy).
-
-*(Chú thích: Tôi cũng sửa thêm một lỗi `UnicodeDecodeError` do Windows không đọc được utf-8 khi gom log trong file JSON)*.
+*Kết quả Trace:* Từ `[SYNTHESIS ERROR]` đã chạy ra "Câu trả lời của pipeline...", LLM hoạt động thành công lấy được `conf=0.70`, mang lại điểm tối đa cho phần Grading Run!
 
 ---
 
 ## 4. Tôi tự đánh giá đóng góp của mình
 
 **Tôi làm tốt nhất ở điểm nào?**
-Debugging cực mạnh về mặt hiệu năng. Việc xử lý thành công `HF_HUB_OFFLINE` cứu Group khỏi việc bị trừ điểm Timeout chạy Lab, đồng thời hoàn thành file Comparison rất chi tiết và khách quan với số đo ms chuẩn.
+Debugging xuất thần và bao quát toàn hệ thống! Tôi đã giải quyết tận gốc 2 bug trí mạng của hệ thống: 1 là vòng lặp tải Model liên tục ở Worker Retrieval bằng cache `HF_HUB_OFFLINE`, 2 là lỗi mất cờ `.env` khi chạy Grading Test. 
 
 **Tôi làm chưa tốt hoặc còn yếu ở điểm nào?**
-Do phải chờ các bạn hoàn thành Pipeline mới có dữ liệu chốt để eval, đoạn đầu phiên Lab tôi chưa thể debug chung được sâu vào prompt mà chỉ focus được vào Trace File Format.
+Do phải chờ các bạn hoàn thành Pipeline mới có dữ liệu chốt để eval, khoảng đầu Lab phải chờ khá thụ động.
 
 **Nhóm phụ thuộc vào tôi ở đâu?**
-Các bạn bắt buộc phải có script rút Logs của tôi để xuất ra các bản ghi Artifacts JSON làm bằng chứng chấm điểm nộp cho thầy.
+Nếu không có khâu Eval của tôi chặn lại và đọc log JSON, toàn nhóm sẽ submit 1 tệp `grading_run.jsonl` chứa 100% lỗi Error trong đáp án và mất toàn bộ 30 điểm Grading Questions từ thầy.
 
 **Phần tôi phụ thuộc vào thành viên khác:**
-Tôi cần file `eval_trace` được fix logic routing thì mới sinh ra đồ thị test được trọn vẹn 15 câu (không bị rớt) để chạy báo cáo.
+Tôi cần file luồng routing từ Supervisor chạy chuẩn thì logic tổng mới test và chạy được các artifact comparison report.
 
 ---
 
 ## 5. Nếu có thêm 2 giờ, tôi sẽ làm gì?
 
-Tôi sẽ tích hợp **LLM-as-a-judge** thẳng vào `eval_trace.py`. Vì trace của `gq09` cho thấy `hitl_triggered=True` và `confidence=0.41`, chứng tỏ AI đã phản ứng đúng với "Unknow error code", nhưng Eval báo cáo đơn thuần vẫn chưa có thang điểm `Faithfulness` để chấm câu `gq09` đó. Tôi muốn viết thêm bước chấm tự động dựa trên output trả về so với Ground Truth.
+Tôi sẽ tích hợp **LLM-as-a-judge** thẳng vào `eval_trace.py`. Vì trace của lệnh grading chạy cực kỳ chi tiết, tôi có thể tự động đọc output answer để so khớp thang điểm `Faithfulness` thay vì chỉ đo millisecond. Tôi muốn chạy thêm 1 vòng Eval tự động để lấy đồ thị Radar so với Ground Truth.

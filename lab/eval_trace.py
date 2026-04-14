@@ -18,6 +18,8 @@ import json
 import os
 import sys
 import argparse
+from dotenv import load_dotenv
+load_dotenv()
 from datetime import datetime
 from typing import Optional
 
