@@ -178,10 +178,18 @@ def run(state: dict) -> dict:
         state["sources"] = result["sources"]
         state["confidence"] = result["confidence"]
 
+        # Trigger HITL nếu confidence thấp (< 0.4) — per contract constraint
+        if result["confidence"] < 0.4:
+            state["hitl_triggered"] = True
+            state["history"].append(
+                f"[{WORKER_NAME}] HITL triggered: confidence={result['confidence']} < 0.4"
+            )
+
         worker_io["output"] = {
             "answer_length": len(result["answer"]),
             "sources": result["sources"],
             "confidence": result["confidence"],
+            "hitl_triggered": state.get("hitl_triggered", False),
         }
         state["history"].append(
             f"[{WORKER_NAME}] answer generated, confidence={result['confidence']}, "

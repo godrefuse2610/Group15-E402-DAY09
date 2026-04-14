@@ -17,8 +17,6 @@ Gọi độc lập để test:
 """
 
 import os
-import sys
-from typing import Optional
 
 WORKER_NAME = "policy_tool_worker"
 
@@ -56,6 +54,62 @@ def _call_mcp_tool(tool_name: str, tool_input: dict) -> dict:
             "error": {"code": "MCP_CALL_FAILED", "reason": str(e)},
             "timestamp": datetime.now().isoformat(),
         }
+
+
+# ─────────────────────────────────────────────
+# LLM-based Policy Analysis
+# ─────────────────────────────────────────────
+
+def _llm_analyze_policy(task: str, chunks: list, rule_exceptions: list) -> str:
+    """
+    Dùng LLM để phân tích policy sâu hơn rule-based check.
+    Trả về explanation string. Nếu LLM unavailable, trả về rule-based summary.
+    """
+    if not chunks:
+        return "Không có context đủ để phân tích policy."
+
+    context_text = "\n".join([
+        f"[{i+1}] ({c.get('source','?')}): {c.get('text','')}"
+        for i, c in enumerate(chunks)
+    ])
+    exceptions_summary = (
+        "; ".join([ex.get("rule", "") for ex in rule_exceptions])
+        if rule_exceptions else "Không có exception"
+    )
+
+    system_msg = (
+        "Bạn là policy analyst nội bộ. Dựa HOÀN TOÀN vào context được cung cấp, "
+        "hãy giải thích ngắn gọn (2-3 câu) tại sao policy áp dụng hoặc không áp dụng "
+        "cho tình huống này. Chỉ dùng thông tin trong context, không suy đoán thêm."
+    )
+    user_msg = (
+        f"Câu hỏi: {task}\n\n"
+        f"Context:\n{context_text}\n\n"
+        f"Rule-based exceptions đã phát hiện: {exceptions_summary}\n\n"
+        "Giải thích ngắn gọn kết quả phân tích policy:"
+    )
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            temperature=0.0,
+            max_tokens=200,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        # Fallback nếu LLM unavailable
+        if rule_exceptions:
+            return (
+                f"Rule-based analysis: {exceptions_summary}. "
+                f"(LLM analysis unavailable: {e})"
+            )
+        return f"Policy áp dụng bình thường theo tài liệu hiện hành. (LLM unavailable: {e})"
 
 
 # ─────────────────────────────────────────────
@@ -117,20 +171,10 @@ def analyze_policy(task: str, chunks: list) -> dict:
     if "31/01" in task_lower or "30/01" in task_lower or "trước 01/02" in task_lower:
         policy_version_note = "Đơn hàng đặt trước 01/02/2026 áp dụng chính sách v3 (không có trong tài liệu hiện tại)."
 
-    # TODO Sprint 2: Gọi LLM để phân tích phức tạp hơn
-    # Ví dụ:
-    # from openai import OpenAI
-    # client = OpenAI()
-    # response = client.chat.completions.create(
-    #     model="gpt-4o-mini",
-    #     messages=[
-    #         {"role": "system", "content": "Bạn là policy analyst. Dựa vào context, xác định policy áp dụng và các exceptions."},
-    #         {"role": "user", "content": f"Task: {task}\n\nContext:\n" + "\n".join([c['text'] for c in chunks])}
-    #     ]
-    # )
-    # analysis = response.choices[0].message.content
-
     sources = list({c.get("source", "unknown") for c in chunks if c})
+
+    # LLM-based analysis — bổ sung rule-based với phân tích ngữ nghĩa sâu hơn
+    llm_explanation = _llm_analyze_policy(task, chunks, exceptions_found)
 
     return {
         "policy_applies": policy_applies,
@@ -138,7 +182,7 @@ def analyze_policy(task: str, chunks: list) -> dict:
         "exceptions_found": exceptions_found,
         "source": sources,
         "policy_version_note": policy_version_note,
-        "explanation": "Analyzed via rule-based policy check. TODO: upgrade to LLM-based analysis.",
+        "explanation": llm_explanation,
     }
 
 
